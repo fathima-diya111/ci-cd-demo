@@ -3,29 +3,38 @@ pipeline {
 
     environment {
         DOCKER_USER = "fathimadiya111"
+        IMAGE_NAME = "my-app"
     }
 
     stages {
 
         stage('Clone') {
             steps {
-                checkout scm
+                git branch: 'main', url: 'https://github.com/fathima-diya111/ci-cd-demo.git'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
                 script {
-                    tag = "v1.${BUILD_NUMBER}"
-                    sh "docker build -t my-app:${tag} ."
-                    sh "docker tag my-app:${tag} ${DOCKER_USER}/my-app:${tag}"
+                    def tag = "v1.${BUILD_NUMBER}"
+                    env.TAG = tag
+                    sh "docker build -t $DOCKER_USER/$IMAGE_NAME:$TAG ."
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Login to Docker Hub') {
             steps {
-                sh "docker push ${DOCKER_USER}/my-app:${tag}"
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh 'echo $PASS | docker login -u $USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push') {
+            steps {
+                sh "docker push $DOCKER_USER/$IMAGE_NAME:$TAG"
             }
         }
 
@@ -33,7 +42,7 @@ pipeline {
             steps {
                 sh 'docker stop my-container || true'
                 sh 'docker rm my-container || true'
-                sh "docker run -d -p 80:80 --name my-container ${DOCKER_USER}/my-app:${tag}"
+                sh "docker run -d -p 80:80 --name my-container $DOCKER_USER/$IMAGE_NAME:$TAG"
             }
         }
     }
