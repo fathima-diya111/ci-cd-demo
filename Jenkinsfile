@@ -1,24 +1,39 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_USER = "fathimadiya111"
+    }
+
     stages {
+
         stage('Clone') {
             steps {
-                git branch: 'main', url: 'https://github.com/fathima-diya111/ci-cd-demo.git'
+                checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t my-app .'
+                script {
+                    tag = "v1.${BUILD_NUMBER}"
+                    sh "docker build -t my-app:${tag} ."
+                    sh "docker tag my-app:${tag} ${DOCKER_USER}/my-app:${tag}"
+                }
             }
         }
 
-        stage('Deploy Container') {
+        stage('Push to Docker Hub') {
+            steps {
+                sh "docker push ${DOCKER_USER}/my-app:${tag}"
+            }
+        }
+
+        stage('Deploy') {
             steps {
                 sh 'docker stop my-container || true'
                 sh 'docker rm my-container || true'
-                sh 'docker run -d -p 80:80 --name my-container my-app'
+                sh "docker run -d -p 80:80 --name my-container ${DOCKER_USER}/my-app:${tag}"
             }
         }
     }
